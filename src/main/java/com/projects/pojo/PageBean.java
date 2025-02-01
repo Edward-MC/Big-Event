@@ -6,11 +6,11 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 
-//分页返回结果对象
+//Paging Result Object
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class PageBean <T>{
-    private Long total;//总条数
-    private List<T> items;//当前页数据集合
+public class  PageBean <T>{
+    private Long total;// Total Count
+    private List<T> items;//Current page items
 }
