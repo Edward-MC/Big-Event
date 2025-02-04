@@ -10,12 +10,16 @@ import com.projects.utils.ThreadLocalUtil;
 import jakarta.validation.constraints.Pattern;
 import org.hibernate.validator.constraints.URL;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Validated
 @RestController
@@ -24,6 +28,8 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
 
     @PostMapping("/register")
     public Result register(@Pattern(regexp = "^\\S{5,16}$") String username, @Pattern(regexp = "^\\S{5,16}$") String password) {
@@ -56,6 +62,10 @@ public class UserController {
             claims.put("ID", loginUser.getId());
             claims.put("username", loginUser.getUsername());
             String JWTToken = JwtUtil.genToken(claims);
+
+            // Add JWT Token to Redis
+            ValueOperations<String, String> operations = stringRedisTemplate.opsForValue();
+            operations.set(JWTToken, JWTToken, 12, TimeUnit.HOURS);  // Same with the token expiration time
             return Result.success(JWTToken);
         }
         return Result.error("Password doesn't Match");
@@ -85,7 +95,7 @@ public class UserController {
     }
 
     @PatchMapping("/updatePsw")
-    public Result updatePsw(@RequestBody Map<String, String> params) {
+    public Result updatePsw(@RequestBody Map<String, String> params, @RequestHeader("Authorization") String token) {
         // MVC will Make the Json Format Containing (old_psw, new_psw, re_psw) to Map
         // 1. Check the parameters are All not Null
         String oldPsw = params.get("old_psw");
@@ -110,6 +120,10 @@ public class UserController {
 
         // 4. Call Service to Update the Password
         userService.updatePsw(newPsw);
+
+        // 5. Delete old token in Redis
+        ValueOperations<String, String> operations = stringRedisTemplate.opsForValue();
+        operations.getOperations().delete(token);
         return Result.success();
     }
 
